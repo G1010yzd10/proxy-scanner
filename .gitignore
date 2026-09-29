@@ -1,11 +1,14 @@
-# job-local / bulky artifacts never committed
-state/known.json
+# runtime artifacts
 logs/
-data/raw/
-data/results.json
-data/test_plan.json
+bin/
+xray_tmp/
+xray.zip
+sb.tgz
+sing-box-*/
 __pycache__/
 *.pyc
-bin/
-*.zip
-*.tar.gz
+.pytest_cache/
+
+# full per-proxy results (kept as Actions artifact, not in git)
+data/results.json
+data/test_plan.json
