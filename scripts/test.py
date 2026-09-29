@@ -53,11 +53,14 @@ def now():
 # ------------------------------------------------------------------ curl ----
 
 def curl(args, timeout=None):
-    """Run curl, return (exit_code, stdout_last_line)."""
+    """Run curl, return (exit_code, out). For success, out = the -w write-out
+    string (stdout!); for failures, out = last stderr line."""
     cmd = ["curl", "-sS", "-o", "/dev/null"] + args
     try:
         r = subprocess.run(cmd, capture_output=True, text=True,
                            timeout=timeout or (P1_MAXTIME + 25))
+        if r.returncode == 0:
+            return 0, (r.stdout or "").strip()
         out = (r.stderr or "").strip().splitlines()
         return r.returncode, out[-1] if out else ""
     except subprocess.TimeoutExpired:
@@ -167,11 +170,9 @@ class EngineBatch:
     def __init__(self, engine, xray_bin, sb_bin, tag):
         self.engine, self.xray_bin, self.sb_bin, self.tag = engine, xray_bin, sb_bin, tag
         self.proc = None
+        self.logf = None
         self.cfg_path = f"/tmp/ps_{engine}_{tag}.json"
         self.log_path = f"/tmp/ps_{engine}_{tag}.log"
-
-    def __enter__(self):
-        return self
 
     def start(self, items, ports):
         if self.engine == "xray":
@@ -186,28 +187,28 @@ class EngineBatch:
         self.proc = subprocess.Popen(cmd, stdout=self.logf, stderr=self.logf)
         time.sleep(ENGINE_STARTUP_WAIT)
         if self.proc.poll() is not None:
-            err = self._logtail()
-            raise RuntimeError(f"{self.engine} crashed on start: {err}")
+            raise RuntimeError(f"{self.engine} crashed on start: {self.logtail()}")
 
-    def _logtail(self):
+    def logtail(self, n=700):
         try:
             with open(self.log_path, "r", encoding="utf-8", errors="replace") as f:
-                return f.read()[-300:]
+                return f.read()[-n:]
         except OSError:
             return ""
 
-    def __exit__(self, *exc):
+    def stop(self):
         if self.proc and self.proc.poll() is None:
             self.proc.terminate()
             try:
                 self.proc.wait(3)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
-        if getattr(self, "logf", None):
+        if self.logf:
             try:
                 self.logf.close()
             except Exception:
                 pass
+            self.logf = None
 
 
 def _buildable(p, engine):
@@ -266,34 +267,68 @@ def run_engine_pass(items, engine, xray_bin, sb_bin, fn, workers, tag, ports_bas
 
 
 BISECT_STARTS = {"n": 0}
-BISECT_STARTS_MAX = 60
+BISECT_STARTS_MAX = 40
+POISON_MAX_PER_BATCH = 40
+
+# engines name the offending outbound in their crash output:
+#   xray:     "failed to build outbound config with tag p176"
+#   sing-box: "initialize outbound[176]: ..."
+POISON_RE = {
+    "xray": re.compile(r"outbound config with tag p(\d+)"),
+    "singbox": re.compile(r"outbound\[(\d+)\]"),
+}
 
 
 def _run_or_bisect(items, ports, engine, xray_bin, sb_bin, fn, workers, tag):
-    """Try to run one engine batch; on start crash, split and recurse."""
+    """Run one engine batch. On start crash, parse the offending outbound tag
+    from the engine log, drop that poison pill, and retry; if the culprit
+    can't be identified, bisect the batch as a fallback."""
     out = {}
-    try:
-        with EngineBatch(engine, xray_bin, sb_bin, tag) as eng:
-            eng.start(items, ports)
+    cur_items, cur_ports = list(items), list(ports)
+    for _ in range(POISON_MAX_PER_BATCH):
+        eng = EngineBatch(engine, xray_bin, sb_bin, tag)
+        try:
+            eng.start(cur_items, cur_ports)
+        except (RuntimeError, ValueError) as e:
+            tail = eng.logtail()
+            eng.stop()
+            m = POISON_RE.get(engine) and POISON_RE[engine].search(tail)
+            if m:
+                idx = int(m.group(1))
+                if 0 <= idx < len(cur_items):
+                    bad = cur_items.pop(idx)
+                    cur_ports.pop(idx)
+                    out[bad["phash"]] = {"err": f"config_rejected:{str(e)[:40]}"}
+                    continue
+            # no parseable culprit -> bisect
+            if len(cur_items) <= 1 or BISECT_STARTS["n"] >= BISECT_STARTS_MAX:
+                log(f"  ! batch {tag} ({engine}) failed: {str(e)[:140]}")
+                for p in cur_items:
+                    out[p["phash"]] = {"err": f"engine_failed:{str(e)[:60]}"}
+                return out
+            BISECT_STARTS["n"] += 1
+            mid = len(cur_items) // 2
+            log(f"  ~ batch {tag} ({engine}) crashed "
+                f"({len(cur_items)} proxies); bisecting")
+            out.update(_run_or_bisect(cur_items[:mid], cur_ports[:mid], engine,
+                                      xray_bin, sb_bin, fn, workers, tag + "a"))
+            out.update(_run_or_bisect(cur_items[mid:], cur_ports[mid:], engine,
+                                      xray_bin, sb_bin, fn, workers, tag + "b"))
+            return out
+        # started fine -> run the checks, then stop
+        try:
             with ThreadPoolExecutor(max_workers=workers) as ex:
-                futs = [(p, ex.submit(fn, p, pt)) for p, pt in zip(items, ports)]
+                futs = [(p, ex.submit(fn, p, pt))
+                        for p, pt in zip(cur_items, cur_ports)]
                 for p, fu in futs:
                     out[p["phash"]] = fu.result()
+        finally:
+            eng.stop()
         return out
-    except (RuntimeError, ValueError) as e:
-        reason = str(e)[:200]
-        if len(items) <= 1 or BISECT_STARTS["n"] >= BISECT_STARTS_MAX:
-            log(f"  ! batch {tag} ({engine}) failed: {reason[:120]}")
-            return {p["phash"]: {"err": f"engine_failed:{reason[:60]}"}
-                    for p in items}
-        BISECT_STARTS["n"] += 1
-        mid = len(items) // 2
-        log(f"  ~ batch {tag} ({engine}) crashed ({len(items)} proxies); bisecting")
-        out.update(_run_or_bisect(items[:mid], ports[:mid], engine, xray_bin,
-                                  sb_bin, fn, workers, tag + "a"))
-        out.update(_run_or_bisect(items[mid:], ports[mid:], engine, xray_bin,
-                                  sb_bin, fn, workers, tag + "b"))
-        return out
+    log(f"  ! batch {tag} ({engine}): too many poison pills, giving up on rest")
+    for p in cur_items:
+        out[p["phash"]] = {"err": "engine_failed:too_many_poison"}
+    return out
 
 
 # ------------------------------------------------------------------ main ----

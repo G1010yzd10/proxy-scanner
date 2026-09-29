@@ -34,6 +34,10 @@ SS_ALIAS = {
     "xchacha20-poly1305": "xchacha20-ietf-poly1305",
 }
 
+# vmess ciphers accepted by BOTH engines (empirically verified:
+# xray rejects legacy ones silently?, sing-box fatals on e.g. aes-256-cfb)
+VMESS_CIPHERS = {"auto", "none", "zero", "aes-128-gcm", "chacha20-poly1305"}
+
 
 def _ss_method_ok(p):
     m = (p.get("method") or "").lower()
@@ -71,9 +75,17 @@ def engine_supports(engine, p):
     net = p.get("network") or "tcp"
     if engine == "direct":
         return proto in ("http", "socks", "socks5")
+    # poison-pill guards: configs both unusable AND crash engines at load time
+    if p.get("security") == "reality" and not p.get("pbk"):
+        return False                       # reality without public key
     if proto == "ss":
         if not _ss_method_ok(p):
             return False
+    if proto == "trojan" and not p.get("password"):
+        return False                       # xray: "Trojan password is not specified"
+    if proto == "vmess" and \
+            (p.get("security_cipher") or "auto").lower() not in VMESS_CIPHERS:
+        return False                       # sing-box fatals on legacy vmess ciphers
     if engine == "xray":
         if proto not in XRAY_PROTOS:
             return False
