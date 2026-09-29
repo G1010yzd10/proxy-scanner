@@ -14,6 +14,7 @@ only work on one core). Results -> data/results.json.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -91,8 +92,8 @@ def proxy_args(p, local_port=None):
 
 
 def fmt_w(keys):
-    """-w format string for the keys we parse."""
-    return "-w", "%" + "|%".join(keys)
+    """-w format string for the keys we parse (curl 8.x braced syntax)."""
+    return "-w", "%{" + "}|%{".join(keys) + "}"
 
 
 def check_connectivity(p, local_port):
