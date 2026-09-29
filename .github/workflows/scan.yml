@@ -1,0 +1,120 @@
+name: Free Proxy Scanner
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max candidates to test (0 = all, cap 4500+600)"
+        required: false
+        default: "0"
+      time_budget:
+        description: "Seconds for the test phase"
+        required: false
+        default: "2700"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "tests/**"
+      - "sources/**"
+      - ".github/workflows/scan.yml"
+      - "requirements.txt"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: proxy-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: "Collect > Clean > Dedupe > REALLY test > Report"
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade -q pip
+          python -m pip install -q -r requirements.txt pytest
+
+      - name: Install engines (Xray + sing-box)
+        run: |
+          set -e
+          mkdir -p bin
+          # Xray-core (latest stable)
+          curl -sL "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip" -o /tmp/xray.zip
+          unzip -o -q /tmp/xray.zip xray -d bin && chmod +x bin/xray
+          # sing-box (latest stable via redirect)
+          SB_VER=$(curl -sIL -o /dev/null -w '%{url_effective}' \
+            "https://github.com/SagerNet/sing-box/releases/latest" | grep -oP 'tag/v\K[0-9.]+')
+          echo "sing-box version: $SB_VER"
+          curl -sL "https://github.com/SagerNet/sing-box/releases/download/v${SB_VER}/sing-box-${SB_VER}-linux-amd64.tar.gz" | tar xz -C /tmp
+          mv "/tmp/sing-box-${SB_VER}-linux-amd64/sing-box" bin/ && chmod +x bin/sing-box
+          bin/xray version | head -1
+          bin/sing-box version | head -1
+
+      - name: Unit tests (parsers / cleaners / state / engine configs)
+        run: python -m pytest tests -q
+
+      - name: "Stage 1-2: collect, clean, dedupe, archive"
+        run: |
+          mkdir -p logs
+          python scripts/collect.py 2>&1 | tee logs/collect.log
+
+      - name: "Stage 3: REALLY test the proxies (real tunnels, egress verification)"
+        run: |
+          python scripts/test.py \
+            --xray-bin bin/xray \
+            --singbox-bin bin/sing-box \
+            --limit "${{ github.event.inputs.limit || '0' }}" \
+            --time-budget "${{ github.event.inputs.time_budget || '2700' }}" \
+            2>&1 | tee logs/test.log
+
+      - name: "Stage 4: report (README, subscriptions, badges, history)"
+        env:
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_NUMBER: ${{ github.run_number }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python scripts/report.py 2>&1 | tee logs/report.log
+
+      - name: Commit and push results
+        env:
+          GIT_TERMINAL_PROMPT: 0
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A README.md subs badges state data archive
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(report): automated run #${{ github.run_number }} [skip ci]"
+            git pull --rebase --autostash || true
+            git push || (sleep 5 && git pull --rebase --autostash && git push)
+          fi
+
+      - name: Upload run artifacts (logs + full results)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-run-${{ github.run_number }}
+          path: |
+            logs
+            data/collect_stats.json
+            data/test_stats.json
+            data/last_run.json
+            data/history.jsonl
+            data/raw/last_collect.jsonl
+          retention-days: 30
+          if-no-files-found: warn

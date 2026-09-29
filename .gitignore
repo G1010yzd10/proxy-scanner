@@ -1,0 +1,11 @@
+# job-local / bulky artifacts never committed
+state/known.json
+logs/
+data/raw/
+data/results.json
+data/test_plan.json
+__pycache__/
+*.pyc
+bin/
+*.zip
+*.tar.gz
