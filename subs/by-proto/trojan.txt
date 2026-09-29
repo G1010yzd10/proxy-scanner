@@ -1,0 +1,2 @@
+trojan://mitivpn@199.232.78.160:443?security=tls&type=ws&sni=ssl.fastly.com&fp=firefox&alpn=http%2F1.1&host=mitivpn---us--s---mitivpn-11.global.ssl.fastly.net&path=%40mehrosaboran#%2358%20%F0%9F%87%BA%F0%9F%87%B8%20US%20%E2%86%92%20%F0%9F%87%BA%F0%9F%87%B8%20US
+trojan://mitivpn@167.82.76.7:443?security=tls&type=ws&sni=ssl.fastly.com&fp=chrome&alpn=http%2F1.1&host=mitivpn---us--s---mitivpn-11.global.ssl.fastly.net&path=%40mehrosaboran#%2379%20%F0%9F%87%BA%F0%9F%87%B8%20US%20%E2%86%92%20%F0%9F%87%BA%F0%9F%87%B8%20US
