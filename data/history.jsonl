@@ -2,3 +2,4 @@
 {"ts":1790691174,"date":"2026-09-29 14:12","tested":4500,"alive":0,"working":0,"unique":163009,"avg_kbps":0,"max_kbps":0,"duration_s":1350}
 {"ts":1790693292,"date":"2026-09-29 14:48","tested":4500,"alive":799,"working":756,"unique":163092,"avg_kbps":6860,"max_kbps":52113,"duration_s":1221}
 {"ts":1790696923,"date":"2026-09-29 15:48","tested":4500,"alive":839,"working":796,"unique":163148,"avg_kbps":6690,"max_kbps":51305,"duration_s":1192}
+{"ts":1790718833,"date":"2026-09-29 21:53","tested":4500,"alive":880,"working":852,"unique":164268,"avg_kbps":6525,"max_kbps":61790,"duration_s":1118}
