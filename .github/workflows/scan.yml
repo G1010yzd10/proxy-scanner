@@ -68,12 +68,16 @@ jobs:
         run: python -m pytest tests -q
 
       - name: "Stage 1-2: collect, clean, dedupe, archive"
+        shell: bash
         run: |
+          set -o pipefail
           mkdir -p logs
           python scripts/collect.py 2>&1 | tee logs/collect.log
 
       - name: "Stage 3: REALLY test the proxies (real tunnels, egress verification)"
+        shell: bash
         run: |
+          set -o pipefail
           python scripts/test.py \
             --xray-bin bin/xray \
             --singbox-bin bin/sing-box \
@@ -82,11 +86,13 @@ jobs:
             2>&1 | tee logs/test.log
 
       - name: "Stage 4: report (README, subscriptions, badges, history)"
+        shell: bash
         env:
           GH_RUN_ID: ${{ github.run_id }}
           GH_RUN_NUMBER: ${{ github.run_number }}
           GH_REPO: ${{ github.repository }}
         run: |
+          set -o pipefail
           python scripts/report.py 2>&1 | tee logs/report.log
 
       - name: Commit and push results

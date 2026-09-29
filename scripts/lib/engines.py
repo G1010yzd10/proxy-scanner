@@ -15,6 +15,44 @@ XRAY_PROTOS = {"vmess", "vless", "trojan", "ss", "socks", "http"}
 SB_PROTOS = {"vmess", "vless", "trojan", "ss", "socks", "http", "hysteria2", "hysteria", "tuic"}
 SB_NETWORKS = {"tcp", "ws", "grpc", "http", "httpupgrade"}
 
+# Shadowsocks methods loadable by MODERN xray/sing-box (AEAD + 2022).
+# Legacy ciphers (rc4-md5, *-cfb, chacha20-ietf, ...) are rejected by both
+# cores at config-load time and poison whole batches, so we never test them.
+# Empirically verified against xray 26.x and sing-box 1.14:
+#   - both accept the *-ietf-poly1305 spellings
+#   - xray also accepts the short aliases (normalized below for sing-box)
+#   - 2022-blake3-* additionally require a valid base64 key of the right length
+SS_MODERN_METHODS = {
+    "aes-128-gcm", "aes-256-gcm",
+    "chacha20-ietf-poly1305", "xchacha20-ietf-poly1305",
+    "chacha20-poly1305", "xchacha20-poly1305",   # aliases -> normalized
+    "2022-blake3-aes-128-gcm", "2022-blake3-aes-256-gcm",
+    "2022-blake3-chacha20-poly1305",
+}
+SS_ALIAS = {
+    "chacha20-poly1305": "chacha20-ietf-poly1305",
+    "xchacha20-poly1305": "xchacha20-ietf-poly1305",
+}
+
+
+def _ss_method_ok(p):
+    m = (p.get("method") or "").lower()
+    if m not in SS_MODERN_METHODS:
+        return False
+    if m.startswith("2022-"):
+        import base64
+        need = 16 if "aes-128" in m else 32
+        try:
+            key = base64.b64decode(p.get("password") or "", validate=True)
+            return len(key) == need
+        except Exception:
+            return False
+    return True
+
+
+def _norm_ss_method(m):
+    return SS_ALIAS.get((m or "").lower(), (m or "").lower())
+
 
 def primary_engine(p):
     proto = p.get("proto")
@@ -33,6 +71,9 @@ def engine_supports(engine, p):
     net = p.get("network") or "tcp"
     if engine == "direct":
         return proto in ("http", "socks", "socks5")
+    if proto == "ss":
+        if not _ss_method_ok(p):
+            return False
     if engine == "xray":
         if proto not in XRAY_PROTOS:
             return False
@@ -127,7 +168,7 @@ def xray_outbound(p, tag):
         st = {"servers": [srv]}
         xp = "trojan"
     elif proto == "ss":
-        srv = {"address": addr, "port": port, "method": p.get("method", ""),
+        srv = {"address": addr, "port": port, "method": _norm_ss_method(p.get("method")),
                "password": p.get("password", "")}
         if p.get("plugin"):
             srv["plugin"] = p["plugin"]
@@ -165,7 +206,7 @@ def build_xray_config(items, ports):
         rules.append({"type": "field", "inboundTag": [f"in{i}"],
                       "outboundTag": f"p{i}", "network": "tcp,udp"})
     outbounds.append({"tag": "direct", "protocol": "freedom"})
-    return {"log": {"loglevel": "warning"}, "inbounds": inbounds, "outbounds": outbounds,
+    return {"log": {"loglevel": "error"}, "inbounds": inbounds, "outbounds": outbounds,
             "routing": {"domainStrategy": "AsIs", "rules": rules}}
 
 
@@ -218,7 +259,7 @@ def sb_outbound(p, tag, domain_resolver=None):
     ob = {"tag": tag, "server": p["server"], "server_port": p["port"]}
     if proto == "ss":
         ob["type"] = "shadowsocks"
-        ob["method"] = p.get("method", "")
+        ob["method"] = _norm_ss_method(p.get("method"))
         ob["password"] = p.get("password", "")
         if p.get("plugin"):
             ob["plugin"] = p["plugin"]
@@ -304,7 +345,7 @@ def build_singbox_config(items, ports, use_dns=True):
     route = {"rules": rules, "final": "direct"}
     if use_dns:  # sing-box 1.12+: domains in outbounds resolve via this
         route["default_domain_resolver"] = {"server": "res0"}
-    cfg = {"log": {"level": "warn", "timestamp": True}, "inbounds": inbounds,
+    cfg = {"log": {"level": "error", "timestamp": True}, "inbounds": inbounds,
            "outbounds": outbounds, "route": route}
     if dns:
         cfg["dns"] = dns

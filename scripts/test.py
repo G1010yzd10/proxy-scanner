@@ -93,24 +93,25 @@ def fmt_w(keys):
 
 
 def check_connectivity(p, local_port):
-    """Phase 1: returns (alive, latency_ms, error)."""
+    """Phase 1: returns {alive, lat_ms, err}."""
     w = fmt_w(["http_code", "time_total"])
     code, out = curl(["--max-time", str(P1_MAXTIME), *proxy_args(p, local_port),
                       *w, CHECK_URL])
     if code != 0:
-        return False, None, f"curl{code}:{out[:80]}"
+        return {"alive": False, "lat_ms": None, "err": f"curl{code}:{out[:70]}"}
     parts = out.split("|")
     if len(parts) < 2 or parts[0] != "204":
-        return False, None, f"http:{parts[0] if parts else '?'}"
+        return {"alive": False, "lat_ms": None,
+                "err": f"http:{parts[0] if parts else '?'}"}
     try:
         lat = int(float(parts[1]) * 1000)
     except ValueError:
         lat = None
-    return True, lat, ""
+    return {"alive": True, "lat_ms": lat, "err": ""}
 
 
 def check_exit(p, local_port):
-    """Phase 2 identity: returns (exit_ip, cc, as_, err). Body fetched to stdout."""
+    """Phase 2 identity: returns {ip, cc, as, err}."""
     cmd = ["curl", "-sS", "--max-time", str(P2_MAXTIME), *proxy_args(p, local_port),
            EXIT_URL]
     try:
@@ -118,7 +119,8 @@ def check_exit(p, local_port):
         if r.returncode == 0 and r.stdout.strip().startswith("{"):
             j = json.loads(r.stdout)
             if j.get("status") == "success":
-                return j.get("query", ""), j.get("countryCode", ""), j.get("as", ""), ""
+                return {"ip": j.get("query", ""), "cc": j.get("countryCode", ""),
+                        "as": j.get("as", ""), "err": ""}
         # try https fallback (some http proxies only allow CONNECT)
         cmd2 = ["curl", "-sS", "--max-time", str(P2_MAXTIME), *proxy_args(p, local_port),
                 EXIT_URL2]
@@ -129,30 +131,32 @@ def check_exit(p, local_port):
             cc = j.get("country_code") or ""
             asn = j.get("asn") or ""
             org = j.get("organization") or ""
-            return ip, cc, (f"AS{asn} {org}" if asn else org), ""
-        return "", "", "", f"exit_lookup_failed:{(r.stderr or r2.stderr)[:60]}"
+            return {"ip": ip, "cc": cc,
+                    "as": (f"AS{asn} {org}" if asn else org), "err": ""}
+        return {"ip": "", "cc": "", "as": "",
+                "err": f"exit_lookup_failed:{(r.stderr or r2.stderr)[:50]}"}
     except subprocess.TimeoutExpired:
-        return "", "", "", "exit_timeout"
+        return {"ip": "", "cc": "", "as": "", "err": "exit_timeout"}
     except Exception as e:
-        return "", "", "", f"exit_err:{str(e)[:60]}"
+        return {"ip": "", "cc": "", "as": "", "err": f"exit_err:{str(e)[:50]}"}
 
 
 def check_speed(p, local_port):
-    """Phase 2 throughput: 1 MB download, returns kbps (kilobits/s) or None."""
+    """Phase 2 throughput: 1 MB download, returns {kbps}."""
     w = fmt_w(["size_download", "speed_download"])
     code, out = curl(["--max-time", str(SP_MAXTIME), *proxy_args(p, local_port),
                       *w, SPEED_URL], timeout=SP_MAXTIME + 20)
     parts = out.split("|")
     if len(parts) < 2:
-        return None
+        return {"kbps": None}
     try:
         size = float(parts[0])
         spd = float(parts[1])
     except ValueError:
-        return None
+        return {"kbps": None}
     if size < 100_000:   # <100KB received -> unusable measurement
-        return None
-    return int(spd * 8 / 1000)
+        return {"kbps": None}
+    return {"kbps": int(spd * 8 / 1000)}
 
 
 # --------------------------------------------------------------- engines ----
@@ -206,45 +210,90 @@ class EngineBatch:
                 pass
 
 
+def _buildable(p, engine):
+    """Cheap pre-check: can this engine's config even represent this proxy?"""
+    try:
+        if engine == "xray":
+            engines.xray_outbound(p, "t")
+        elif engine == "singbox":
+            engines.sb_outbound(p, "t")
+        else:
+            return True
+        return True
+    except Exception:
+        return False
+
+
 def run_engine_pass(items, engine, xray_bin, sb_bin, fn, workers, tag, ports_base):
     """Start engine in BATCHes; for each proxy call fn(proxy, local_port).
 
-    Returns dict phash -> fn result; crashed batches are marked ("engine_failed",).
+    If a batch crashes on start (one malformed outbound poisons the whole
+    config), bisect the batch until the offending proxies are isolated and
+    marked engine_failed; the rest still get tested.
+    Returns dict phash -> result dict.
     """
     out = {}
     for bi in range(0, len(items), BATCH):
+        chunk = items[bi:bi + BATCH]
         if engine == "direct":
-            chunk = items[bi:bi + BATCH]
             with ThreadPoolExecutor(max_workers=workers) as ex:
                 for p, res in zip(chunk, ex.map(lambda p: fn(p, None), chunk)):
                     out[p["phash"]] = res
             continue
-        chunk = items[bi:bi + BATCH]
-        ports = [ports_base + i for i in range(len(chunk))]
-        # skip proxies this engine cannot represent
-        idx = [i for i, p in enumerate(chunk) if engines.engine_supports(engine, p)]
-        if not idx:
-            for i, p in enumerate(chunk):
-                out[p["phash"]] = ("unsupported",)
-            continue
-        sub_items = [chunk[i] for i in idx]
-        sub_ports = [ports[i] for i in idx]
-        port_of = {p["phash"]: pt for p, pt in zip(sub_items, sub_ports)}
-        try:
-            with EngineBatch(engine, xray_bin, sb_bin, f"{tag}_{bi // BATCH}") as eng:
-                eng.start(sub_items, sub_ports)
-                with ThreadPoolExecutor(max_workers=workers) as ex:
-                    futs = [(p, ex.submit(fn, p, port_of[p["phash"]])) for p in sub_items]
-                    for p, fu in futs:
-                        out[p["phash"]] = fu.result()
-        except RuntimeError as e:
-            log(f"  ! batch {bi // BATCH} ({engine}) failed: {str(e)[:120]}")
-            for p in sub_items:
-                out[p["phash"]] = ("engine_failed", str(e)[:ENGINE_LOG_KEPT])
+        idx = [i for i, p in enumerate(chunk)
+               if engines.engine_supports(engine, p)]
         for i, p in enumerate(chunk):
-            if p["phash"] not in out:
-                out[p["phash"]] = ("unsupported",)
+            if i not in idx:
+                out[p["phash"]] = {"err": "unsupported"}
+        sub_items = [chunk[i] for i in idx]
+        sub_ports = [ports_base + i for i in idx]
+        # drop proxies whose outbound config can't even be built (poison pills)
+        rejected = set()
+        sub_items2, sub_ports2 = [], []
+        for p, pt in zip(sub_items, sub_ports):
+            if _buildable(p, engine):
+                sub_items2.append(p)
+                sub_ports2.append(pt)
+            else:
+                rejected.add(p["phash"])
+        for h in rejected:
+            out[h] = {"err": "config_rejected"}
+        sub_items, sub_ports = sub_items2, sub_ports2
+        if sub_items:
+            out.update(_run_or_bisect(sub_items, sub_ports, engine, xray_bin, sb_bin,
+                                      fn, workers, f"{tag}_{bi // BATCH}"))
     return out
+
+
+BISECT_STARTS = {"n": 0}
+BISECT_STARTS_MAX = 60
+
+
+def _run_or_bisect(items, ports, engine, xray_bin, sb_bin, fn, workers, tag):
+    """Try to run one engine batch; on start crash, split and recurse."""
+    out = {}
+    try:
+        with EngineBatch(engine, xray_bin, sb_bin, tag) as eng:
+            eng.start(items, ports)
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                futs = [(p, ex.submit(fn, p, pt)) for p, pt in zip(items, ports)]
+                for p, fu in futs:
+                    out[p["phash"]] = fu.result()
+        return out
+    except (RuntimeError, ValueError) as e:
+        reason = str(e)[:200]
+        if len(items) <= 1 or BISECT_STARTS["n"] >= BISECT_STARTS_MAX:
+            log(f"  ! batch {tag} ({engine}) failed: {reason[:120]}")
+            return {p["phash"]: {"err": f"engine_failed:{reason[:60]}"}
+                    for p in items}
+        BISECT_STARTS["n"] += 1
+        mid = len(items) // 2
+        log(f"  ~ batch {tag} ({engine}) crashed ({len(items)} proxies); bisecting")
+        out.update(_run_or_bisect(items[:mid], ports[:mid], engine, xray_bin,
+                                  sb_bin, fn, workers, tag + "a"))
+        out.update(_run_or_bisect(items[mid:], ports[mid:], engine, xray_bin,
+                                  sb_bin, fn, workers, tag + "b"))
+        return out
 
 
 # ------------------------------------------------------------------ main ----
@@ -293,10 +342,6 @@ def main():
         return args.time_budget - (time.time() - t0)
 
     # -------------------------------------------------- phase 1: connect ----
-    def p1(p, port):
-        alive, lat, err = check_connectivity(p, port)
-        return (alive, lat, err)
-
     def phase1(items, force_engine=None):
         groups = {"direct": [], "xray": [], "singbox": []}
         for p in items:
@@ -312,23 +357,29 @@ def main():
             tag = f"p1{force_engine or ''}"
             ports_base = XRAY_PORT if eng == "xray" else SB_PORT
             res = run_engine_pass(gitems, eng, args.xray_bin, args.singbox_bin,
-                                  p1, P1_WORKERS, tag, ports_base)
-            for h, (alive, lat, err) in res.items():
-                if alive:
-                    results[h].update(alive=True, latency_ms=lat, error="",
+                                  check_connectivity, P1_WORKERS, tag, ports_base)
+            for h, r in res.items():
+                if r.get("alive"):
+                    results[h].update(alive=True, latency_ms=r.get("lat_ms"),
+                                      error="",
                                       engine=force_engine or engines.primary_engine(
                                           by_hash[h]))
                 elif results[h]["error"] in ("untested",):
-                    results[h].update(alive=False, error=err or "dead",
+                    results[h].update(alive=False,
+                                      error=r.get("err") or "dead",
                                       engine=force_engine or "")
-            log(f"    -> {sum(1 for h, r in res.items() if r[0])} reachable")
+            log(f"    -> {sum(1 for r in res.values() if r.get('alive'))} reachable")
 
     log("phase 1: connectivity")
     phase1(plan)
 
     # fallback pass: swap engines for the failed ones
-    failed = [p for p in plan if not results[p["phash"]]["alive"]
-              and results[p["phash"]]["error"] not in ("unsupported", "engine_failed")]
+    def retryable(p):
+        err = results[p["phash"]]["error"]
+        return not (err == "unsupported" or err.startswith("engine_failed")
+                    or err == "config_rejected")
+
+    failed = [p for p in plan if not results[p["phash"]]["alive"] and retryable(p)]
     retry_sb = [p for p in failed if engines.primary_engine(p) == "xray"
                 and engines.engine_supports("singbox", p)]
     retry_xr = [p for p in failed if engines.primary_engine(p) == "singbox"
@@ -343,10 +394,6 @@ def main():
     log(f"phase 1 done: {len(alive_items)} reachable in {int(time.time() - t0)}s")
 
     # ------------------------------------------- phase 2: verify + speed ----
-    def p2(p, port):
-        ip, cc, as_, err = check_exit(p, port)
-        return (ip, cc, as_, err)
-
     def phase2(items):
         groups = {"direct": [], "xray": [], "singbox": []}
         for p in items:
@@ -365,16 +412,17 @@ def main():
             tag = "p2"
             ports_base = XRAY_PORT if eng == "xray" else SB_PORT
             res = run_engine_pass(gitems, eng, args.xray_bin, args.singbox_bin,
-                                  p2, P2_WORKERS, tag, ports_base)
-            for h, (ip, cc, as_, err) in res.items():
-                r = results[h]
-                if ip:
-                    r.update(exit_ip=ip, exit_cc=cc, exit_as=as_)
-                    r["work"] = bool(runner_ip and ip != runner_ip)
-                    if not r["work"]:
-                        r["error"] = "egress_not_changed"
+                                  check_exit, P2_WORKERS, tag, ports_base)
+            for h, r in res.items():
+                rec = results[h]
+                if r.get("ip"):
+                    rec.update(exit_ip=r["ip"], exit_cc=r.get("cc", ""),
+                               exit_as=r.get("as", ""))
+                    rec["work"] = bool(runner_ip and r["ip"] != runner_ip)
+                    if not rec["work"]:
+                        rec["error"] = "egress_not_changed"
                 else:
-                    r["error"] = err or "exit_lookup_failed"
+                    rec["error"] = r.get("err") or "exit_lookup_failed"
 
     log("phase 2: egress identity")
     phase2(alive_items)
@@ -387,9 +435,6 @@ def main():
     if not args.skip_speed:
         working.sort(key=lambda p: results[p["phash"]]["latency_ms"] or 9999)
 
-        def sp(p, port):
-            return check_speed(p, port)
-
         groups = {"direct": [], "xray": [], "singbox": []}
         for p in working:
             eng = "direct" if p.get("proto") in ("http", "socks", "socks5") \
@@ -401,10 +446,10 @@ def main():
             log(f"  speed [{eng}]: {len(gitems)} proxies")
             ports_base = XRAY_PORT if eng == "xray" else SB_PORT
             res = run_engine_pass(gitems, eng, args.xray_bin, args.singbox_bin,
-                                  sp, P2_WORKERS, "sp", ports_base)
-            for h, kbps in res.items():
-                if isinstance(kbps, int):
-                    results[h]["speed_kbps"] = kbps
+                                  check_speed, P2_WORKERS, "sp", ports_base)
+            for h, r in res.items():
+                if r.get("kbps"):
+                    results[h]["speed_kbps"] = r["kbps"]
         log(f"speed done at {int(time.time() - t0)}s")
 
     # --------------------------------------- server-side geo (inbound cc) ----

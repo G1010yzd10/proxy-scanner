@@ -201,6 +201,34 @@ def test_engine_supports_matrix():
     assert E.engine_supports("xray", p) and not E.engine_supports("singbox", p)
 
 
+def test_ss_legacy_cipher_rejected():
+    # modern engines refuse legacy ciphers at config-load; must be excluded
+    for method in ("rc4-md5", "chacha20-ietf", "aes-256-cfb", "salsa20"):
+        p = P.parse_uri(f"ss://{method}:pw@1.2.3.4:8388")
+        assert not E.engine_supports("xray", p), method
+        assert not E.engine_supports("singbox", p), method
+    for method in ("aes-256-gcm", "chacha20-ietf-poly1305",
+                   "chacha20-poly1305", "xchacha20-poly1305"):
+        p = P.parse_uri(f"ss://{method}:pw@1.2.3.4:8388")
+        assert E.engine_supports("xray", p), method
+        assert E.engine_supports("singbox", p), method
+    # 2022 methods require a valid base64 key of the right length
+    key32 = base64.b64encode(b"K" * 32).decode()
+    p = P.parse_uri(f"ss://2022-blake3-aes-256-gcm:{key32}@1.2.3.4:8388")
+    assert E.engine_supports("xray", p) and E.engine_supports("singbox", p)
+    p = P.parse_uri("ss://2022-blake3-aes-256-gcm:not-a-key@1.2.3.4:8388")
+    assert not E.engine_supports("xray", p)
+    assert not E.engine_supports("singbox", p)
+
+
+def test_ss_alias_normalized_for_singbox():
+    p = P.parse_uri("ss://chacha20-poly1305:pw@1.2.3.4:8388")
+    ob = E.sb_outbound(p, "t")
+    assert ob["method"] == "chacha20-ietf-poly1305"
+    xo = E.xray_outbound(p, "t")
+    assert xo["settings"]["servers"][0]["method"] == "chacha20-ietf-poly1305"
+
+
 def test_build_xray_config_shape():
     p1 = P.parse_uri(_vmess_uri())
     p2 = P.parse_uri("trojan://pw@t.com:443?sni=t.com")

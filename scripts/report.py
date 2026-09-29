@@ -300,10 +300,11 @@ def main():
     A("## Why most \"free proxy lists\" lie")
     A("")
     A("The typical aggregator relists whatever it scraped, so 80-95% of entries are "
-      "dead within hours — this run found "
-      f"**{100 * (tested - alive_n) / tested:.0f}% unreachable** and "
-      f"**{100 * (tested - len(working)) / tested:.0f}% unusable** overall. "
-      "Only tunnels that completed a real HTTPS handshake, returned a verifiable "
+      "dead within hours"
+      + (f" — this run found **{100 * (tested - alive_n) / tested:.0f}% unreachable** "
+         f"and **{100 * (tested - len(working)) / tested:.0f}% unusable** overall."
+         if tested else ".")
+      + " Only tunnels that completed a real HTTPS handshake, returned a verifiable "
       "foreign exit IP, and pushed a 1 MB download are counted as working here.")
     A("")
 
