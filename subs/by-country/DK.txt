@@ -1,0 +1,1 @@
+vless://fdc48be3-a615-41ac-8bd1-ed844c931048@188.114.97.6:443?encryption=none&security=tls&type=ws&sni=edgetunnel-4uw.pages.dev&alpn=http%2F1.1&host=edgetunnel-4uw.pages.dev&path=%2F#%23689%20%F0%9F%87%A8%F0%9F%87%A6%20CA%20%E2%86%92%20%F0%9F%87%A9%F0%9F%87%B0%20DK
