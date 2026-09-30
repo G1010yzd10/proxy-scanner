@@ -1,1 +1,1 @@
-vless://f667a096-5231-4cfb-8759-92bb32473139@77.91.68.70:55983?encryption=none&security=reality&type=tcp&sni=yahoo.com&fp=chrome&pbk=nWQ7b9l9X6N3PrXLgIzOvMM8iSYrqjVHEb9ikWxqYSg&sid=0e&headerType=none#%23701%20%F0%9F%87%A6%F0%9F%87%B2%20AM%20%E2%86%92%20%F0%9F%87%A6%F0%9F%87%B2%20AM
+vless://f667a096-5231-4cfb-8759-92bb32473139@77.91.68.70:55983?encryption=none&security=reality&type=tcp&sni=yahoo.com&fp=chrome&pbk=nWQ7b9l9X6N3PrXLgIzOvMM8iSYrqjVHEb9ikWxqYSg&sid=0e&headerType=none#%23550%20%F0%9F%87%A6%F0%9F%87%B2%20AM%20%E2%86%92%20%F0%9F%87%A6%F0%9F%87%B2%20AM
