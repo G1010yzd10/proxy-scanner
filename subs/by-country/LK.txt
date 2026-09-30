@@ -1,3 +1,4 @@
-vless://684f9a2e-4f96-497f-bfd9-ff1e34637952@support.zoom.us:80?encryption=none&security=none&type=ws&host=free.sahanwickramasinghe.me&path=%2F#%23501%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B0%20LK
-vless://3d08ed67-5a47-42d3-a948-ebc7d2eb21f7@51.75.67.209:443?encryption=none&security=tls&type=tcp&sni=free.sahanwickramasinghe.me&fp=firefox#%23516%20%F0%9F%87%A9%F0%9F%87%AA%20DE%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B0%20LK
-vless://684f9a2e-4f96-497f-bfd9-ff1e34637952@free.sahanwickramasinghe.me:80?encryption=none&security=none&type=ws#%23530%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B0%20LK
+vless://684f9a2e-4f96-497f-bfd9-ff1e34637952@free.sahanwickramasinghe.me:80?encryption=none&security=none&type=ws#%23585%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B0%20LK
+vless://3d08ed67-5a47-42d3-a948-ebc7d2eb21f7@51.75.67.209:443?encryption=none&security=tls&type=tcp&sni=free.sahanwickramasinghe.me&fp=firefox#%23588%20%F0%9F%87%A9%F0%9F%87%AA%20DE%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B0%20LK
+vless://3d08ed67-5a47-42d3-a948-ebc7d2eb21f7@free.sahanwickramasinghe.me:443?encryption=none&security=tls&type=tcp&sni=free.sahanwickramasinghe.me&fp=chrome#%23614%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B0%20LK
+vless://684f9a2e-4f96-497f-bfd9-ff1e34637952@support.zoom.us:80?encryption=none&security=none&type=ws&host=free.sahanwickramasinghe.me&path=%2F#%23638%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B0%20LK
