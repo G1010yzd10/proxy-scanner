@@ -1,2 +1,0 @@
-vless://5d16ac22-6eea-426f-b778-6f4c2961faef@176.108.245.167:9881?encryption=none&security=reality&type=grpc&sni=dl.google.com&fp=chrome&pbk=Dfgu8Ey0M8Hz4gXGZAwQ3H9jLt2HByVsjAOTWiuKDB0&sid=aabbccdd&serviceName=grpc-tunnel&mode=gun#%23684%20%F0%9F%87%B7%F0%9F%87%BA%20RU%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B9%20LT
-vless://9e3132b8-b595-444a-833a-2de44789f9d7@213.183.55.153:8443?encryption=none&security=tls&type=ws&sni=shephe.dpdns.org&fp=chrome&host=shephe.dpdns.org&path=%2F#%23997%20%F0%9F%87%B1%F0%9F%87%B9%20LT%20%E2%86%92%20%F0%9F%87%B1%F0%9F%87%B9%20LT
