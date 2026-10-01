@@ -1,1 +1,0 @@
-vless://441a29b2-d9aa-47d5-9209-0a9191479f9f@185.143.179.179:25026?encryption=none&security=reality&type=tcp&sni=www.google.com&fp=chrome&flow=xtls-rprx-vision&pbk=RVh0D446O5pKnOqlNkJNxSGGbmzl8swn4YBXYce1HSw&sid=34c465417d7ebca0#%23541%20%F0%9F%87%AC%F0%9F%87%AA%20GE%20%E2%86%92%20%F0%9F%87%AC%F0%9F%87%AA%20GE

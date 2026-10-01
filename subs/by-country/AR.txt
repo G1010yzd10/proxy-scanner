@@ -1,1 +1,1 @@
-vless://fdc48be3-a615-41ac-8bd1-ed844c931048@43.174.195.1:443?encryption=none&security=tls&type=ws&sni=edgetunnel-4uw.pages.dev&fp=chrome&host=edgetunnel-4uw.pages.dev&path=%2F#%23793%20%F0%9F%87%B8%F0%9F%87%AC%20SG%20%E2%86%92%20%F0%9F%87%A6%F0%9F%87%B7%20AR
+vless://fdc48be3-a615-41ac-8bd1-ed844c931048@43.174.195.1:443?encryption=none&security=tls&type=ws&sni=edgetunnel-4uw.pages.dev&fp=chrome&host=edgetunnel-4uw.pages.dev&path=%2F#%231017%20%F0%9F%87%B8%F0%9F%87%AC%20SG%20%E2%86%92%20%F0%9F%87%A6%F0%9F%87%B7%20AR
