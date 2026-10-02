@@ -1,2 +1,2 @@
-vless://bc659d88-a1e0-4c65-a49a-7b51b26a7a7f@87.192.47.10:52006?encryption=none&security=tls&type=tcp&sni=grok.setlisting.ru&flow=xtls-rprx-vision&alpn=h2%2Chttp%2F1.1&headerType=none#%23369%20%F0%9F%87%AE%F0%9F%87%AA%20IE%20%E2%86%92%20%F0%9F%87%AE%F0%9F%87%AA%20IE
-trojan://Trojan%4082164024@ie.tronsg.com:443?security=tls&type=tcp&sni=ie.tronsg.com#%23698%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%AE%F0%9F%87%AA%20IE
+trojan://Trojan%4082164024@ie.tronsg.com:443?security=tls&type=tcp&sni=ie.tronsg.com#%23171%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%AE%F0%9F%87%AA%20IE
+vless://bc659d88-a1e0-4c65-a49a-7b51b26a7a7f@87.192.47.10:52006?encryption=none&security=tls&type=tcp&sni=grok.setlisting.ru&flow=xtls-rprx-vision&alpn=h2%2Chttp%2F1.1&headerType=none#%23484%20%F0%9F%87%AE%F0%9F%87%AA%20IE%20%E2%86%92%20%F0%9F%87%AE%F0%9F%87%AA%20IE
