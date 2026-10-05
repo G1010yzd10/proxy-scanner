@@ -1,0 +1,1 @@
+vless://e99ba96d-dec8-42eb-be53-19e71eef7cab@5.253.42.164:40443?encryption=none&security=reality&type=tcp&sni=deepl.com&fp=chrome&flow=xtls-rprx-vision&pbk=g77ZJbm18JEotapmVRjaXi133MzkbhkU2lxhVeXx8zw&sid=68a8&headerType=none#%23776%20%F0%9F%87%AE%F0%9F%87%B3%20IN%20%E2%86%92%20%F0%9F%87%A8%F0%9F%87%BE%20CY
