@@ -12,3 +12,8 @@ __pycache__/
 # full per-proxy results (kept as Actions artifact, not in git)
 data/results.json
 data/test_plan.json
+
+# job-local registry of every proxy seen this run — it holds ~160k full proxy
+# objects per run and MUST NEVER be committed (a past commit let it grow to
+# 102MB, over GitHub's 100MB file limit, which blocked every push for days)
+state/known.json

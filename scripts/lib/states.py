@@ -24,6 +24,7 @@ ALIVE_RECALL_DAYS = 7       # re-test proxies that were alive within this window
 ALIVE_RECALL_CAP = 1200     # max entries kept in alive_recall.json
 GEO_CAP = 6000
 DNS_CAP = 6000
+REGISTRY_CAP = 250_000      # hard cap for the job-local known.json registry
 
 
 def load_json(path, default):
@@ -147,7 +148,12 @@ class SourceStates:
 # ------------------------------------------------------------ registry ------
 
 class Registry:
-    """Job-local registry of every proxy seen this run: phash -> meta."""
+    """Job-local registry of every proxy seen this run: phash -> meta.
+
+    Deliberately NOT committed to git: it holds full proxy objects for every
+    candidate (~160k/day) and would blow past GitHub's 100MB file limit.
+    Cross-run state lives in sources.json (capped seen windows) instead.
+    """
 
     def __init__(self, path):
         self.path = path
@@ -171,6 +177,11 @@ class Registry:
         return e["srcs"] if e else []
 
     def save(self):
+        # belt & braces: never let the job-local file grow without bound
+        if len(self.m) > REGISTRY_CAP:
+            keep = sorted(self.m.items(),
+                          key=lambda kv: -kv[1].get("last", 0))[:REGISTRY_CAP]
+            self.m = dict(keep)
         save_json(self.path, self.m)
 
 
