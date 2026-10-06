@@ -1,1 +1,1 @@
-vless://76ac91c5-ea82-4046-8ee7-2ffbb563ac94@geo.shkola112.site:443?encryption=none&security=tls&type=ws&sni=geo.shkola112.site&host=geo.shkola112.site&path=%2Fapi-vless#%23689%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%AC%F0%9F%87%AA%20GE
+vless://76ac91c5-ea82-4046-8ee7-2ffbb563ac94@geo.shkola112.site:443?encryption=none&security=tls&type=ws&sni=geo.shkola112.site&host=geo.shkola112.site&path=%2Fapi-vless#%23723%20%E2%9D%93%20%3F%3F%20%E2%86%92%20%F0%9F%87%AC%F0%9F%87%AA%20GE
