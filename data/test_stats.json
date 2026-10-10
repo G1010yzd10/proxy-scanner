@@ -1,1 +1,1 @@
-{"alive":1154,"avg_speed_kbps":6080,"duration_s":1215,"errors":{"curl28":1006,"curl35":2254,"curl97":12,"unsupported":78},"exit_checked":1128,"max_speed_kbps":47669,"runner_cc":"US","runner_ip":"20.171.2.192","speed_tested":896,"tested":4504,"ts":1791602296.7927523,"working":1128}
+{"alive":967,"avg_speed_kbps":5159,"duration_s":1244,"errors":{"curl28":1029,"curl35":2410,"curl56":2,"curl97":14,"unsupported":84},"exit_checked":933,"max_speed_kbps":63838,"runner_cc":"US","runner_ip":"13.83.167.50","speed_tested":774,"tested":4506,"ts":1791632961.0285153,"working":933}
