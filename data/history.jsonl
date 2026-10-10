@@ -32,3 +32,4 @@
 {"ts":1791584146,"date":"2026-10-09 22:15","tested":4506,"alive":966,"working":935,"unique":161739,"avg_kbps":6842,"max_kbps":51938,"duration_s":1176}
 {"ts":1791602296,"date":"2026-10-10 03:18","tested":4504,"alive":1154,"working":1128,"unique":160688,"avg_kbps":6080,"max_kbps":47669,"duration_s":1215}
 {"ts":1791632961,"date":"2026-10-10 11:49","tested":4506,"alive":967,"working":933,"unique":159874,"avg_kbps":5159,"max_kbps":63838,"duration_s":1244}
+{"ts":1791650939,"date":"2026-10-10 16:48","tested":4503,"alive":939,"working":884,"unique":160437,"avg_kbps":4962,"max_kbps":42826,"duration_s":1283}
